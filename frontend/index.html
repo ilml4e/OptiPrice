@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OptiPrice</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div class="w-[95%] max-w-[1400px] mx-auto px-4 py-8 lg:px-8">
+    <header class="mb-8">
+      <div class="rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 p-8 shadow-2xl">
+        <p class="text-indigo-300 uppercase tracking-[0.3em] text-xs font-semibold mb-3">
+          Optimización de precios con cálculo diferencial
+        </p>
+        <h1 class="text-4xl font-bold mb-3">OptiPrice</h1>
+        <p class="text-slate-300 max-w-3xl leading-7">
+          Calcula el precio óptimo de venta, la ganancia máxima esperada y valida matemáticamente el resultado
+          con derivadas de primer y segundo orden.
+        </p>
+      </div>
+    </header>
+
+    <main class="flex flex-col xl:flex-row gap-6">
+      <!-- Panel de entrada -->
+      <section class="w-full xl:w-[380px] xl:shrink-0 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-2xl font-semibold">Entradas del modelo</h2>
+          <button id="fillExample" class="text-sm px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition">
+            Cargar ejemplo
+          </button>
+        </div>
+
+        <form id="optimizerForm" class="space-y-5">
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Precio habitual de venta</label>
+            <input id="usual_price"
+                   type="number"
+                   step="any"
+                   class="w-full rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                   placeholder="Ej: 50"
+                   required />
+            <p class="text-xs text-slate-400 mt-2">
+              El precio al que normalmente vendes tu producto.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Cantidad vendida al precio habitual</label>
+            <input id="usual_quantity"
+                   type="number"
+                   step="any"
+                   class="w-full rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                   placeholder="Ej: 200"
+                   required />
+            <p class="text-xs text-slate-400 mt-2">
+              Cuántas unidades logras vender en este periodo con el precio normal.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Precio en oferta/prueba</label>
+            <input id="promo_price"
+                   type="number"
+                   step="any"
+                   class="w-full rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                   placeholder="Ej: 35"
+                   required />
+            <p class="text-xs text-slate-400 mt-2">
+              Un precio más bajo para estimar cómo reaccionan tus clientes.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Cantidad vendida al precio de oferta</label>
+            <input id="promo_quantity"
+                   type="number"
+                   step="any"
+                   class="w-full rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                   placeholder="Ej: 500"
+                   required />
+            <p class="text-xs text-slate-400 mt-2">
+              Cuántas unidades estimas vender a ese precio más bajo.
+            </p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-300 mb-2">Costo de producción por unidad</label>
+            <input id="unit_cost"
+                   type="number"
+                   step="any"
+                   class="w-full rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                   placeholder="Ej: 12"
+                   required />
+            <p class="text-xs text-slate-400 mt-2">
+              Cuánto te cuesta fabricar o comprar una sola unidad de este producto. Esto reemplaza la función de costo variable.
+            </p>
+          </div>
+
+
+          <details class="group rounded-3xl border border-slate-800 bg-slate-950/60 p-2 shadow-lg">
+            <summary class="list-none cursor-pointer select-none rounded-2xl px-4 py-4 hover:bg-slate-800/60 transition">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <h2 class="text-lg font-semibold text-slate-100">Ajustes Avanzados (Opcional)</h2>
+                  <p class="text-sm text-slate-400 mt-1">Moneda, costo fijo y capacidad de producción.</p>
+                </div>
+                <span class="text-slate-400 text-lg transition-transform duration-300 group-open:rotate-180">⌄</span>
+              </div>
+            </summary>
+
+            <div class="flex flex-col gap-4 p-4 pt-2">
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Moneda de visualización</label>
+                <select id="currency_select"
+                        class="w-full rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="CLP" selected>Peso chileno (CLP)</option>
+                  <option value="USD">Dólar estadounidense (USD)</option>
+                  <option value="EUR">Euro (EUR)</option>
+                  <option value="MXN">Peso mexicano (MXN)</option>
+                </select>
+                <p class="text-xs text-slate-400 mt-2">
+                  Elige la divisa para mostrar precio óptimo y ganancia máxima.
+                </p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Costo fijo total</label>
+                <input id="fixed_cost"
+                       type="number"
+                       step="any"
+                       value="0"
+                       class="w-full rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                       placeholder="Ej: 1500" />
+                <p class="text-xs text-slate-400 mt-2">
+                  Gastos fijos de tu negocio que no dependen de la producción.
+                </p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Capacidad máxima de producción</label>
+                <input id="max_capacity"
+                       type="number"
+                       step="any"
+                       class="w-full rounded-2xl bg-slate-950 border border-slate-700 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                       placeholder="Opcional. Déjalo vacío si no aplica" />
+                <p class="text-xs text-slate-400 mt-2">
+                  Límite físico de unidades que tu negocio puede fabricar o almacenar.
+                </p>
+              </div>
+            </div>
+          </details>
+
+          <button id="submitBtn"
+                  type="submit"
+                  class="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 transition shadow-lg shadow-emerald-500/20">
+            Calcular precio óptimo
+          </button>
+        </form>
+      </section>
+
+      <!-- Resultados -->
+      <section id="resultsPanel" class="flex-1 min-w-0 space-y-6">
+        <div id="statusBox" class="hidden rounded-2xl border px-4 py-3 text-sm"></div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <article class="rounded-3xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl">
+            <p class="text-sm text-slate-400 mb-1">Precio óptimo</p>
+            <h3 id="resultPrice" class="text-3xl font-bold text-indigo-300">—</h3>
+          </article>
+
+          <article class="rounded-3xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl">
+            <p class="text-sm text-slate-400 mb-1">Ganancia máxima</p>
+            <h3 id="resultProfit" class="text-3xl font-bold text-emerald-300">—</h3>
+          </article>
+
+          <article class="rounded-3xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl">
+            <p class="text-sm text-slate-400 mb-1">Cantidad óptima</p>
+            <h3 id="resultQuantity" class="text-3xl font-bold text-cyan-300">—</h3>
+          </article>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <article class="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 shadow-xl md:col-span-1">
+            <p class="text-xs text-slate-400 mb-1">Ingresos totales proyectados</p>
+            <h3 id="resultRevenue" class="text-2xl font-bold text-sky-300">—</h3>
+          </article>
+
+          <article class="rounded-3xl border border-slate-800 bg-slate-900/80 p-4 shadow-xl md:col-span-1">
+            <p class="text-xs text-slate-400 mb-1">Costos totales proyectados</p>
+            <h3 id="resultCost" class="text-2xl font-bold text-rose-300">—</h3>
+          </article>
+        </div>
+
+        <div id="dashboardCard" class="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+            <h2 class="text-2xl font-semibold">Dashboard de ganancias</h2>
+            <div class="flex items-center gap-3">
+              <span id="capacityBadge"
+                    class="hidden cursor-help text-xs font-semibold px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                Restricción activa
+              </span>
+              <button id="exportExcelBtn"
+                      type="button"
+                      class="text-sm px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 transition">
+                Exportar a Excel (.xlsx)
+              </button>
+            </div>
+          </div>
+          <div id="profitChart" class="w-full h-[560px] min-h-[560px]"></div>
+          <div class="mt-4 flex justify-end">
+            <button id="saveScenarioBtn"
+                    type="button"
+                    class="text-sm px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition">
+              Guardar escenario para comparar
+            </button>
+          </div>
+        </div>
+
+        <details id="mathAccordion" class="group rounded-3xl border border-slate-800 bg-slate-900/80 p-2 shadow-xl">
+          <summary class="list-none cursor-pointer select-none rounded-2xl px-4 py-4 hover:bg-slate-800/60 transition">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <h2 class="text-xl font-semibold text-slate-100">Ver detalles matemáticos avanzados</h2>
+                <p class="text-sm text-slate-400 mt-1">Derivadas, dominio factible e interpretación de puntos críticos.</p>
+              </div>
+              <span class="text-slate-400 text-lg transition-transform duration-300 group-open:rotate-180">⌄</span>
+            </div>
+          </summary>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4 pt-2">
+            <div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 shadow-xl">
+              <h2 class="text-xl font-semibold mb-4">Comprobación matemática</h2>
+              <div class="space-y-3 text-sm leading-7 text-slate-300">
+                <p><strong>Demanda deducida:</strong> <span id="formulaDemand" class="font-mono text-indigo-200">—</span></p>
+                <p><strong>Costo variable deducido:</strong> <span id="formulaVariableCost" class="font-mono text-indigo-200">—</span></p>
+                <p><strong>Ingresos:</strong> <span id="formulaRevenue" class="font-mono text-indigo-200">—</span></p>
+                <p><strong>Costos:</strong> <span id="formulaCost" class="font-mono text-indigo-200">—</span></p>
+                <p><strong>Ganancia:</strong> <span id="formulaProfit" class="font-mono text-indigo-200">—</span></p>
+                <p><strong>Primera derivada:</strong> <span id="formulaFirstDerivative" class="font-mono text-indigo-200">—</span></p>
+                <p><strong>Segunda derivada:</strong> <span id="formulaSecondDerivative" class="font-mono text-indigo-200">—</span></p>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-slate-800 bg-slate-950/60 p-6 shadow-xl">
+              <h2 class="text-xl font-semibold mb-4">Interpretación del resultado</h2>
+              <div class="space-y-4 text-sm leading-7 text-slate-300">
+                <p id="mathExplanation">—</p>
+                <p id="feasibleDomain">—</p>
+
+                <div>
+                  <h3 class="font-semibold text-slate-100 mb-2">Puntos críticos detectados</h3>
+                  <ul id="criticalPointsList" class="space-y-2"></ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>
