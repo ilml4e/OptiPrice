@@ -347,11 +347,14 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
             "por lo que además del análisis diferencial se comparan los extremos factibles."
         )
     else:
-        mathematical_check = (
+                mathematical_check = (
             f"π''(p*) = {second_value:.4f}. "
             "El punto óptimo encontrado se valida comparando la ganancia "
             "contra los extremos del dominio factible."
         )
+
+    # --- Sensibilidad ---
+    sensitivity_scenarios = _analyze_sensitivity(inputs)
 
     # --- Datos para gráfica (ganancia, ingresos, costos, break-even) ---
     chart_prices = np.linspace(0.0, natural_upper, inputs.chart_points)
@@ -362,9 +365,6 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
         dtype=float,
     )
     valid = np.isfinite(chart_prices) & np.isfinite(chart_profits)
-
-    # --- Sensibilidad ---
-    sensitivity_scenarios = _analyze_sensitivity(inputs)
 
     return {
         "inputs": {
@@ -415,7 +415,9 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
             "elasticity_interpretation": _interpret_elasticity(optimal_elasticity),
             "break_even_prices": break_even_prices,
         },
-        "sensitivity": {"scenarios": sensitivity_scenarios},
+                "sensitivity": {
+            "scenarios": sensitivity_scenarios,
+        },
         "chart": {
             "prices": np.round(chart_prices[valid], 4).tolist(),
             "profits": np.round(chart_profits[valid], 4).tolist(),

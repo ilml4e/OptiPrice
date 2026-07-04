@@ -405,6 +405,20 @@ function renderResultViews(data) {
   resultRevenue.textContent = currency(data.optimal.projected_revenue);
   resultCost.textContent = currency(data.optimal.projected_total_cost);
 
+    // Sensibilidad rápida: variación ±10% en costo unitario
+  const sensDownPrice = document.getElementById('sensDownPrice');
+  const sensUpPrice = document.getElementById('sensUpPrice');
+  if (sensDownPrice && sensUpPrice && data.sensitivity?.scenarios) {
+    const down10 = data.sensitivity.scenarios.find(
+      s => s.parametro === 'Costo unitario' && s.variacion === '-10%'
+    );
+    const up10 = data.sensitivity.scenarios.find(
+      s => s.parametro === 'Costo unitario' && s.variacion === '+10%'
+    );
+    sensDownPrice.textContent = down10?.precio_optimo != null ? currency(down10.precio_optimo) : '—';
+    sensUpPrice.textContent = up10?.precio_optimo != null ? currency(up10.precio_optimo) : '—';
+  }
+
   // Nuevos KPIs
   if (resultMargin) {
     resultMargin.textContent = data.optimal.profit_margin_percent != null
