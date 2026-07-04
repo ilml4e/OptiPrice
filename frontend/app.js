@@ -131,122 +131,55 @@ function renderCriticalPoints(points) {
 
 function renderChart(chart, comparisonChart = null) {
   const currencyLabel = getCurrencyConfig().currency;
-  const currencySymbol = getCurrencySymbol();
-  const xAxisMax = typeof chart.price_max === 'number' ? chart.price_max : Math.max(...chart.prices, 0);
-  const comparisonMax = comparisonChart && typeof comparisonChart.price_max === 'number'
-    ? comparisonChart.price_max
-    : 0;
-  const finalXAxisMax = Math.max(xAxisMax, comparisonMax);
-
   const traces = [];
 
+  // Ingresos (Revenue)
   traces.push({
-    x: chart.prices,
-    y: chart.profits,
-    mode: 'lines',
-    name: 'Ganancia π(p)',
-    line: {
-      color: '#38bdf8',
-      width: 4,
-    },
+    x: chart.prices, y: chart.revenues,
+    mode: 'lines', name: 'Ingresos',
+    line: { color: '#0ea5e9', width: 2, dash: 'dot' }, // Sky
+    opacity: 0.6,
+    hovertemplate: `Precio: %{x}<br>Ingresos: %{y} ${currencyLabel}<extra></extra>`
+  });
+
+  // Costos
+  traces.push({
+    x: chart.prices, y: chart.costs,
+    mode: 'lines', name: 'Costos Totales',
+    line: { color: '#f43f5e', width: 2, dash: 'dot' }, // Rose
+    opacity: 0.6,
+    hovertemplate: `Precio: %{x}<br>Costos: %{y} ${currencyLabel}<extra></extra>`
+  });
+
+  // Ganancia principal
+  traces.push({
+    x: chart.prices, y: chart.profits,
+    mode: 'lines', name: 'Ganancia π(p)',
+    line: { color: '#34d399', width: 4 }, // Emerald
     hovertemplate: `Precio: %{x}<br>Ganancia: %{y} ${currencyLabel}<extra></extra>`
   });
 
-  if (comparisonChart) {
-    traces.push({
-      x: comparisonChart.prices,
-      y: comparisonChart.profits,
-      mode: 'lines',
-      name: 'Escenario guardado',
-      line: {
-        color: '#94a3b8',
-        width: 3,
-        dash: 'dash'
-      },
-      opacity: 0.45,
-      hovertemplate: `Precio: %{x}<br>Ganancia: %{y} ${currencyLabel}<extra></extra>`
-    });
-  }
-
+  // Óptimo
   traces.push({
-    x: [chart.optimal_point.price],
-    y: [chart.optimal_point.profit],
-    mode: 'markers+text',
-    name: 'Óptimo',
-    text: ['Óptimo'],
-    textposition: 'top center',
-    marker: {
-      color: '#34d399',
-      size: 14,
-      line: { color: '#ecfeff', width: 2 }
-    },
+    x: [chart.optimal_point.price], y: [chart.optimal_point.profit],
+    mode: 'markers+text', name: 'Óptimo',
+    text: ['Óptimo'], textposition: 'top center',
+    marker: { color: '#10b981', size: 14, line: { color: '#ecfeff', width: 2 } },
     hovertemplate: `Precio óptimo: %{x}<br>Ganancia máxima: %{y} ${currencyLabel}<extra></extra>`
   });
-
-  if (comparisonChart && comparisonChart.optimal_point) {
-    traces.push({
-      x: [comparisonChart.optimal_point.price],
-      y: [comparisonChart.optimal_point.profit],
-      mode: 'markers+text',
-      name: 'Óptimo guardado',
-      text: ['Guardado'],
-      textposition: 'bottom center',
-      marker: {
-        color: '#94a3b8',
-        size: 12,
-        line: { color: '#cbd5e1', width: 1 }
-      },
-      opacity: 0.55,
-      hovertemplate: `Precio óptimo guardado: %{x}<br>Ganancia máxima: %{y} ${currencyLabel}<extra></extra>`
-    });
-  }
 
   const layout = {
     paper_bgcolor: 'rgba(15, 23, 42, 0)',
     plot_bgcolor: 'rgba(15, 23, 42, 0)',
     font: { color: '#cbd5e1' },
     margin: { t: 20, r: 20, b: 60, l: 70 },
-    xaxis: {
-      title: 'Precio',
-      gridcolor: 'rgba(148, 163, 184, 0.15)',
-      zerolinecolor: 'rgba(148, 163, 184, 0.15)',
-      range: [0, finalXAxisMax]
-    },
-    yaxis: {
-      title: 'Ganancia',
-      gridcolor: 'rgba(148, 163, 184, 0.15)',
-      zerolinecolor: 'rgba(148, 163, 184, 0.15)',
-      tickprefix: `${currencySymbol} `,
-      tickformat: '~s',
-      separatethousands: true,
-      rangemode: 'tozero'
-    },
-    legend: {
-      orientation: 'h',
-      y: 1.15,
-      x: 0
-    }
+    xaxis: { title: 'Precio', gridcolor: 'rgba(148, 163, 184, 0.15)' },
+    yaxis: { title: 'Monto', gridcolor: 'rgba(148, 163, 184, 0.15)', rangemode: 'tozero' },
+    legend: { orientation: 'h', y: 1.15, x: 0 },
+    hovermode: 'x unified' // Mejora UX para comparar series al mismo tiempo
   };
 
-  if (comparisonChart) {
-    layout.annotations = [
-      {
-        x: 0.98,
-        y: 1.08,
-        xref: 'paper',
-        yref: 'paper',
-        text: 'La curva gris muestra el escenario guardado para comparar.',
-        showarrow: false,
-        font: { size: 12, color: '#94a3b8' },
-        align: 'right'
-      }
-    ];
-  }
-
-  Plotly.newPlot('profitChart', traces, layout, {
-    responsive: true,
-    displayModeBar: false
-  });
+  Plotly.newPlot('profitChart', traces, layout, { responsive: true });
 }
 
 
@@ -254,8 +187,17 @@ function renderResultViews(data) {
   resultPrice.textContent = currency(data.optimal.price);
   resultProfit.textContent = currency(data.optimal.max_profit);
   resultQuantity.textContent = `${number(data.optimal.quantity)} u.`;
-  resultRevenue.textContent = currency(data.optimal.projected_revenue ?? (data.optimal.price * data.optimal.quantity));
-  resultCost.textContent = currency(data.optimal.projected_total_cost ?? ((data.optimal.price * data.optimal.quantity) - data.optimal.max_profit));
+  resultRevenue.textContent = currency(data.optimal.projected_revenue);
+  resultCost.textContent = currency(data.optimal.projected_total_cost);
+
+  if(resultElasticity) {
+      resultElasticity.textContent = number(data.optimal.elasticity);
+      resultElasticity.title = Math.abs(data.optimal.elasticity) > 1 ? "Demanda Elástica" : "Demanda Inelástica";
+  }
+  if(sensDownPrice && sensUpPrice) {
+      sensDownPrice.textContent = currency(data.sensitivity.unit_cost_down_10.suggested_price);
+      sensUpPrice.textContent = currency(data.sensitivity.unit_cost_up_10.suggested_price);
+  }
 
   formulaDemand.textContent = `q(p) = ${data.formulas.demand_deduced}`;
   formulaVariableCost.textContent = `c(q) = ${data.formulas.variable_cost_deduced}`;
