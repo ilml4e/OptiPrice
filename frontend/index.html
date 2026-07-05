@@ -305,44 +305,7 @@
         </div>
 
         <!-- ▸ ANÁLISIS DE SENSIBILIDAD (resumen + tabla) ▸ -->
-        <article id="sensitivitySection" class="hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg mt-4">
-          <header class="border-b border-slate-800 px-5 py-4 sm:px-6">
-            <h2 class="text-base font-semibold text-slate-200">Análisis de sensibilidad</h2>
-            <p class="mt-0.5 text-xs text-slate-500">Cómo varían los resultados ante cambios en parámetros clave</p>
-          </header>
-          <div class="p-4 sm:p-6 space-y-4">
-            <!-- Resumen rápido: ±10% en costo unitario -->
-            <div class="rounded-xl border border-slate-700 bg-slate-800/40 p-4 shadow-inner">
-              <h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">Impacto del costo unitario</h3>
-              <div class="grid grid-cols-2 gap-4">
-                <div class="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-                  <p class="text-xs text-slate-400">Si el costo unitario baja un 10%</p>
-                  <p class="text-sm font-semibold text-emerald-300">Nuevo precio sugerido: <span id="sensDownPrice">—</span></p>
-                </div>
-                <div class="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-                  <p class="text-xs text-slate-400">Si el costo unitario sube un 10%</p>
-                  <p class="text-sm font-semibold text-rose-300">Nuevo precio sugerido: <span id="sensUpPrice">—</span></p>
-                </div>
-              </div>
-            </div>
-            <!-- Tabla completa -->
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-sm">
-                <thead>
-                  <tr class="border-b border-slate-700 text-xs uppercase tracking-wider text-slate-400">
-                    <th class="px-3 py-2 font-medium">Parámetro</th>
-                    <th class="px-3 py-2 font-medium">Variación</th>
-                    <th class="px-3 py-2 font-medium">Valor</th>
-                    <th class="px-3 py-2 font-medium">Precio óptimo</th>
-                    <th class="px-3 py-2 font-medium">Ganancia máxima</th>
-                    <th class="px-3 py-2 font-medium">Cantidad</th>
-                  </tr>
-                </thead>
-                <tbody id="sensitivityBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </article>
+        
 
         <!-- ▸ GRÁFICO + EXPORTACIÓN ▸ -->
         <article id="dashboardCard" class="rounded-2xl border border-slate-800 bg-slate-900 shadow-lg">
@@ -383,6 +346,46 @@
             </div>
           </div>
         </article>
+
+        <article id="sensitivitySection" class="hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg mt-4">
+          <header class="border-b border-slate-800 px-5 py-4 sm:px-6">
+            <h2 class="text-base font-semibold text-slate-200">Análisis de sensibilidad</h2>
+            <p class="mt-0.5 text-xs text-slate-500">Cómo varían los resultados ante cambios en parámetros clave</p>
+          </header>
+          <div class="p-4 sm:p-6 space-y-4">
+            <!-- Resumen rápido: ±10% en costo unitario -->
+            <div class="rounded-xl border border-slate-700 bg-slate-800/40 p-4 shadow-inner">
+              <h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">Impacto del costo unitario</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
+                  <p class="text-xs text-slate-400">Si el costo unitario baja un 10%</p>
+                  <p class="text-sm font-semibold text-emerald-300">Nuevo precio sugerido: <span id="sensDownPrice">—</span></p>
+                </div>
+                <div class="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
+                  <p class="text-xs text-slate-400">Si el costo unitario sube un 10%</p>
+                  <p class="text-sm font-semibold text-rose-300">Nuevo precio sugerido: <span id="sensUpPrice">—</span></p>
+                </div>
+              </div>
+            </div>
+            <!-- Tabla completa -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead>
+                  <tr class="border-b border-slate-700 text-xs uppercase tracking-wider text-slate-400">
+                    <th class="px-3 py-2 font-medium">Parámetro</th>
+                    <th class="px-3 py-2 font-medium">Variación</th>
+                    <th class="px-3 py-2 font-medium">Valor</th>
+                    <th class="px-3 py-2 font-medium">Precio óptimo</th>
+                    <th class="px-3 py-2 font-medium">Ganancia máxima</th>
+                    <th class="px-3 py-2 font-medium">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody id="sensitivityBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </article>
+        
 
         <!-- ▸ ACORDEÓN MATEMÁTICO ▸ -->
         <details id="mathAccordion" class="group rounded-2xl border border-slate-800 bg-slate-900 shadow-lg">
