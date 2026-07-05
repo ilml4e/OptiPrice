@@ -7,11 +7,79 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  <style> @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * { font-family: 'Inter', system-ui, sans-serif; }
+
+/* La caja del modal adaptada para tu tema */
+.modal-content {
+    /* Aquí reemplazamos el blanco. Pon el código HEX del fondo de tu app */
+    background-color: #2b2b2b; 
+    /* Cambia este color por el color de texto de tu app */
+    color: #f1f1f1; 
+    
+    margin: 8% auto;
+    padding: 25px 30px;
+    width: 90%;
+    max-width: 450px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    font-family: sans-serif;
+}
+
+.modal-titulo {
+    margin-top: 0;
+    color: inherit; /* Hereda el color del texto del modal */
+    font-size: 1.25rem;
+}
+
+/* --- LA SOLUCIÓN DEL SCROLL --- */
+.precios-container {
+    max-height: 220px; /* Tamaño máximo fijo */
+    overflow-y: auto;  /* Activa el scroll vertical solo cuando supera los 220px */
+    padding-right: 10px; /* Evita que el scroll tape el texto de los inputs */
+    margin-bottom: 15px;
+}
+
+/* Opcional: Personalizar la barra de scroll para que se vea moderna */
+.precios-container::-webkit-scrollbar {
+    width: 8px;
+}
+.precios-container::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05); /* Fondo sutil de la pista */
+    border-radius: 4px;
+}
+.precios-container::-webkit-scrollbar-thumb {
+    background: #666; /* Color de la barra */
+    border-radius: 4px;
+}
+
+/* Estilo de los inputs del historial adaptado a fondo oscuro */
+.precio-input,
+.cantidad-input {
+    display: block;
+    width: 100%;
+    padding: 10px;
+  margin-bottom: 0;
+    background-color: rgba(255, 255, 255, 0.1); /* Input semitransparente */
+    color: inherit;
+    border: 1px solid #555;
+    border-radius: 6px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.precio-input:focus,
+.cantidad-input:focus {
+    border-color: #007bff; /* Color de acento de tu app */
+    outline: none;
+}
+
+   
   </style>
 </head>
+
+
+
 <body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
 
   <!-- ✦ Fondos decorativos sutiles -->
@@ -47,13 +115,12 @@
 
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold text-slate-200">Parámetros del modelo</h2>
-            <button
-              id="fillExample"
-              type="button"
-              class="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-emerald-500/40 hover:bg-slate-700 hover:text-emerald-300"
-            >
-              Cargar ejemplo
-            </button>
+
+            <button type="button" id="btn-abrir-modal" onclick="abrirModal()" class="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-emerald-500/40 hover:bg-slate-700 hover:text-emerald-300">
+              Historial de Precios
+          </button>
+
+        
           </div>
 
           <form id="optimizerForm" class="space-y-5">
@@ -354,6 +421,62 @@
       </section>
     </main>
   </div>
+
+
+<div id="modal-historial" class="hidden fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+      
+          <!-- Caja del modal: Aumentamos a max-w-xl para darle más anchura -->
+          <div class="flex h-[480px] w-full max-w-xl flex-col rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+          
+          <!-- Cabecera (Fija arriba) -->
+          <div>
+              <h3 class="text-lg font-semibold text-slate-200">Historial de Precios</h3>
+              <p class="mt-1 text-sm text-slate-500">Agrega precios anteriores para calcular una recta de demanda (Regresión Lineal).</p>
+          </div>
+          
+          <!-- Contenedor con Scroll (Ocupa el espacio intermedio dinámicamente) -->
+          <div id="contenedor-precios" class="scrollbar-custom my-4 flex-1 overflow-y-auto pr-2 space-y-3">
+            
+            <!-- Fila 1 por defecto -->
+            <div class="flex items-center gap-2 fila-historial">
+                <!-- Se agregó w-full y min-w-0 para forzar la simetría -->
+                <input type="number" step="any" class="precio-input w-full min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/30" placeholder="Precio (Ej: 45)">
+                
+                <input type="number" step="any" class="cantidad-input w-full min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/30" placeholder="Cantidad vendida (Ej: 300)">
+                
+                <!-- Botón eliminar fila -->
+                <button type="button" onclick="eliminarFila(this)" class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-400 transition hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-400" title="Eliminar fila">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                </button>
+            </div>
+
+          </div>
+
+          <!-- Botones de control de filas -->
+          <div class="mb-4 flex items-center justify-between">
+              <button type="button" onclick="agregarCampoPrecio()" class="text-sm font-medium text-emerald-400 transition hover:text-emerald-300">
+                  + Agregar otro precio
+              </button>
+              
+              <button type="button" onclick="limpiarTodoHistorial()" class="text-sm font-medium text-rose-400 transition hover:text-rose-300">
+                  Limpiar todo
+              </button>
+          </div>
+
+          <hr class="mb-4 border-slate-800">
+
+          <!-- Acciones (Fijas abajo gracias a mt-auto) -->
+          <div class="mt-auto flex justify-end gap-3">
+              <button type="button" onclick="cerrarModal()" class="rounded-xl px-4 py-2 text-sm font-medium text-slate-400 transition hover:bg-slate-800 hover:text-slate-200">
+                  Cancelar
+              </button>
+              <button type="button" onclick="guardarYcerrarModal()" class="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20 transition hover:from-emerald-400 hover:to-teal-400 active:scale-95">
+                  Guardar
+              </button>
+          </div>
+      </div>
+  </div>
+
 
   <script src="/assets/app.js"></script>
 </body>

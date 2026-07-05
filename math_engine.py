@@ -31,6 +31,9 @@ class OptimizationInputs:
     unit_cost: float
     max_capacity: Optional[float] = None
     chart_points: int = 250
+    # NUEVO: Aceptamos el historial de precios desde el frontend
+    price_history: Optional[List[Dict[str, float]]] = None
+
 
 class OptimizationError(ValueError):
     pass
@@ -90,7 +93,111 @@ def evaluate_feasibility(quantity: float, max_capacity: Optional[float]) -> bool
         return False
     return True
 
+
+def _interpret_elasticity(elasticity: Optional[float]) -> str:
+    if elasticity is None:
+        return ""
+    abs_e = abs(elasticity)
+    if abs_e > 1:
+        return (
+            f"La demanda es elástica (|ε| = {abs_e:.2f} > 1). "
+            "Los consumidores responden fuertemente a cambios de precio. "
+            "Una reducción de precio podría aumentar los ingresos totales."
+        )
+    elif abs_e < 1:
+        return (
+            f"La demanda es inelástica (|ε| = {abs_e:.2f} < 1). "
+            "Los consumidores responden débilmente a cambios de precio. "
+            "Un aumento de precio podría aumentar los ingresos totales."
+        )
+    else:
+        return (
+            "La demanda tiene elasticidad unitaria (|ε| = 1.00). "
+            "Los ingresos totales se mantienen estables ante cambios de precio."
+        )
+
+# NUEVO: Recibe m y b directamente para respetar la regresión lineal si fue utilizada
+def _analyze_sensitivity(inputs: OptimizationInputs, m: float, b: float) -> List[Dict[str, Any]]:
+    scenarios: List[Dict[str, Any]] = []
+
+    # --- Sensibilidad del costo unitario ---
+    for variation in [-10, -5, 5, 10]:
+        new_unit_cost = max(inputs.unit_cost * (1 + variation / 100), 0)
+        try:
+            opt_price = (new_unit_cost * m - b) / (2 * m)
+            opt_qty = m * opt_price + b
+
+            if inputs.max_capacity is not None and opt_qty > inputs.max_capacity:
+                opt_qty = inputs.max_capacity
+                opt_price = (opt_qty - b) / m
+            if opt_qty < 0:
+                opt_qty = 0
+                opt_price = -b / m
+
+            opt_profit = opt_price * opt_qty - inputs.fixed_cost - new_unit_cost * opt_qty
+
+            scenarios.append({
+                "parametro": "Costo unitario",
+                "variacion": f"{variation:+.0f}%",
+                "valor": round(new_unit_cost, 2),
+                "precio_optimo": round(float(opt_price), 4),
+                "ganancia_maxima": round(float(opt_profit), 4),
+                "cantidad_optima": round(float(opt_qty), 4),
+            })
+        except Exception:
+            scenarios.append({
+                "parametro": "Costo unitario",
+                "variacion": f"{variation:+.0f}%",
+                "valor": round(new_unit_cost, 2),
+                "precio_optimo": None,
+                "ganancia_maxima": None,
+                "cantidad_optima": None,
+            })
+
+    # --- Sensibilidad de capacidad (si aplica) ---
+    if inputs.max_capacity is not None:
+        for variation in [-10, -5, 5, 10, 20]:
+            new_capacity = max(inputs.max_capacity * (1 + variation / 100), 1)
+            try:
+                opt_price_unc = (inputs.unit_cost * m - b) / (2 * m)
+                opt_qty_unc = m * opt_price_unc + b
+
+                if opt_qty_unc > new_capacity:
+                    opt_qty = new_capacity
+                    opt_price = (opt_qty - b) / m
+                else:
+                    opt_qty = opt_qty_unc
+                    opt_price = opt_price_unc
+
+                if opt_qty < 0:
+                    opt_qty = 0
+                    opt_price = -b / m
+
+                opt_profit = opt_price * opt_qty - inputs.fixed_cost - inputs.unit_cost * opt_qty
+
+                scenarios.append({
+                    "parametro": "Capacidad máxima",
+                    "variacion": f"{variation:+.0f}%",
+                    "valor": round(new_capacity, 0),
+                    "precio_optimo": round(float(opt_price), 4),
+                    "ganancia_maxima": round(float(opt_profit), 4),
+                    "cantidad_optima": round(float(opt_qty), 4),
+                })
+            except Exception:
+                scenarios.append({
+                    "parametro": "Capacidad máxima",
+                    "variacion": f"{variation:+.0f}%",
+                    "valor": round(new_capacity, 0),
+                    "precio_optimo": None,
+                    "ganancia_maxima": None,
+                    "cantidad_optima": None,
+                })
+
+    return scenarios
+
+
 def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
+    # Validaciones
     if inputs.usual_price <= 0 or inputs.promo_price <= 0:
         raise OptimizationError("Los precios de referencia deben ser mayores que cero.")
     if inputs.usual_quantity <= 0 or inputs.promo_quantity <= 0:
@@ -104,9 +211,19 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
     if inputs.chart_points < 50:
         raise OptimizationError("Usa al menos 50 puntos para graficar.")
 
-    # Modelos matemáticos base
-    demand_slope = (inputs.promo_quantity - inputs.usual_quantity) / (inputs.promo_price - inputs.usual_price)
-    demand_intercept = inputs.usual_quantity - demand_slope * inputs.usual_price
+    # --- NUEVO: Selección del método de cálculo (Regresión Lineal vs Tradicional) ---
+    if inputs.price_history and len(inputs.price_history) >= 2:
+        precios = np.array([item['precio'] for item in inputs.price_history])
+        cantidades = np.array([item['cantidad'] for item in inputs.price_history])
+        
+        m_val, b_val = np.polyfit(precios, cantidades, 1)
+        demand_slope = float(m_val)
+        demand_intercept = float(b_val)
+    else:
+        demand_slope = (inputs.promo_quantity - inputs.usual_quantity) / (inputs.promo_price - inputs.usual_price)
+        demand_intercept = inputs.usual_quantity - demand_slope * inputs.usual_price
+
+    # Construcción de expresiones simbólicas con el método seleccionado
     demand_expr = sp.simplify(demand_slope * P + demand_intercept)
     
     variable_cost_expr = sp.simplify(inputs.unit_cost * Q)
@@ -163,15 +280,29 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
     opt_q = constrained_best["quantity"]
     elasticity = float(demand_slope * (opt_p / opt_q)) if opt_q > 0 else 0.0
 
-    # Análisis de sensibilidad rápido (Costo Unitario +- 10%)
-    # Usando la fórmula analítica para el máximo de una parábola (demanda lineal)
-    # p* = (cv - b/m) / 2
-    sens_cost_down = inputs.unit_cost * 0.9
-    sens_cost_up = inputs.unit_cost * 1.1
-    p_opt_down = (sens_cost_down - (demand_intercept / demand_slope)) / 2
-    p_opt_up = (sens_cost_up - (demand_intercept / demand_slope)) / 2
+    # --- Explicación ---
+    if second_derivative_confirms_max:
+        mathematical_check = (
+            f"π''(p*) = {second_value:.4f} < 0, por lo tanto el punto crítico "
+            "corresponde a un máximo local de ganancia."
+        )
+    elif capacity_is_binding:
+        mathematical_check = (
+            "La capacidad máxima activa la restricción del problema. "
+            "El óptimo factible se obtiene en la frontera del dominio permitido, "
+            "por lo que además del análisis diferencial se comparan los extremos factibles."
+        )
+    else:
+        mathematical_check = (
+            f"π''(p*) = {second_value:.4f}. "
+            "El punto óptimo encontrado se valida comparando la ganancia "
+            "contra los extremos del dominio factible."
+        )
 
-    # Preparar arrays para gráfico
+    # --- NUEVO: Pasamos la pendiente e intercepto obtenidos a la sensibilidad ---
+    sensitivity_scenarios = _analyze_sensitivity(inputs, demand_slope, demand_intercept)
+
+    # --- Datos para gráfica (ganancia, ingresos, costos, break-even) ---
     chart_prices = np.linspace(0.0, natural_upper, inputs.chart_points)
     chart_profits = np.array(profit_fn(chart_prices), dtype=float)
     chart_revenues = np.array(revenue_fn(chart_prices), dtype=float)
@@ -216,8 +347,7 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
             "feasible_domain": {"price_min": round(feasible_lower, 4), "price_max": round(feasible_upper, 4)},
         },
         "sensitivity": {
-            "unit_cost_down_10": {"cost": round(sens_cost_down, 2), "suggested_price": round(max(0, p_opt_down), 2)},
-            "unit_cost_up_10": {"cost": round(sens_cost_up, 2), "suggested_price": round(max(0, p_opt_up), 2)},
+            "scenarios": sensitivity_scenarios,
         },
         "chart": {
             "prices": np.round(chart_prices[valid], 4).tolist(),

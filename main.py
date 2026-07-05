@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+from typing import Optional, List, Dict
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,7 +40,7 @@ class OptimizeRequest(BaseModel):
     unit_cost: float = Field(..., ge=0, examples=[12])
     max_capacity: Optional[float] = Field(default=None, examples=[700])
     chart_points: int = Field(default=250, ge=50, le=1000)
-
+    price_history: Optional[List[Dict[str, float]]] = None
 
 @app.post("/api/optimize")
 def optimize_endpoint(payload: OptimizeRequest):
@@ -64,6 +65,7 @@ def optimize_endpoint(payload: OptimizeRequest):
                 unit_cost=payload.unit_cost,
                 max_capacity=payload.max_capacity,
                 chart_points=payload.chart_points,
+                price_history=payload.price_history
             )
         )
         return result

@@ -26,6 +26,171 @@ const criticalPointsList = document.getElementById('criticalPointsList');
 
 let lastOptimizationData = null;
 let comparisonOptimizationData = null;
+let historialDemanda = [];
+let historialPreciosGuardado = [];
+
+// ─── Validación en tiempo real ────────────────────────────────
+
+function setupRealTimeValidation() {
+  const numericInputs = [
+    'usual_price', 'usual_quantity', 'promo_price',
+    'promo_quantity', 'unit_cost'
+  ];
+  numericInputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => validateField(id));
+    el.addEventListener('blur', () => validateField(id, true));
+  });
+
+  // Validación cruzada de precios
+  const promoPrice = document.getElementById('promo_price');
+  const usualPrice = document.getElementById('usual_price');
+  if (promoPrice && usualPrice) {
+    promoPrice.addEventListener('input', () => validateCrossPrices());
+    usualPrice.addEventListener('input', () => validateCrossPrices());
+  }
+}
+
+function validateField(id, showAll = false) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const val = Number(el.value);
+  let errorMsg = '';
+
+  if (el.value === '' || isNaN(val)) {
+    if (showAll) errorMsg = 'Este campo es obligatorio.';
+  } else if (val <= 0) {
+    errorMsg = 'Debe ser mayor que cero.';
+  }
+
+  const parent = el.closest('div');
+  const existingError = parent?.querySelector('.field-error');
+  if (existingError) existingError.remove();
+
+  if (errorMsg) {
+    el.classList.add('border-red-500/50', 'ring-2', 'ring-red-500/30');
+    el.classList.remove('focus:border-emerald-500/50', 'focus:ring-emerald-500/30');
+    const err = document.createElement('p');
+    err.className = 'field-error mt-1 text-xs text-red-400';
+    err.textContent = errorMsg;
+    parent?.appendChild(err);
+  } else {
+    el.classList.remove('border-red-500/50', 'ring-2', 'ring-red-500/30');
+    el.classList.add('focus:border-emerald-500/50', 'focus:ring-emerald-500/30');
+  }
+}
+
+function validateCrossPrices() {
+  const promo = document.getElementById('promo_price');
+  const usual = document.getElementById('usual_price');
+  // Limpiar errores previos
+  document.querySelectorAll('.cross-error').forEach(e => e.remove());
+
+  if (promo && usual && promo.value && usual.value) {
+    const pVal = Number(promo.value);
+    const uVal = Number(usual.value);
+    if (pVal >= uVal) {
+      const err = document.createElement('p');
+      err.className = 'cross-error mt-1 text-xs text-red-400 font-semibold';
+      err.textContent = '⚠ El precio de oferta debe ser MENOR que el precio habitual.';
+      promo.closest('div')?.appendChild(err);
+      promo.classList.add('border-red-500/50', 'ring-2', 'ring-red-500/30');
+      usual.classList.add('border-red-500/50', 'ring-2', 'ring-red-500/30');
+    } else {
+      promo.classList.remove('border-red-500/50', 'ring-2', 'ring-red-500/30');
+      usual.classList.remove('border-red-500/50', 'ring-2', 'ring-red-500/30');
+    }
+  }
+}
+
+function checkCrossPriceError() {
+  const promo = document.getElementById('promo_price');
+  const usual = document.getElementById('usual_price');
+  if (promo && usual && promo.value && usual.value) {
+    return Number(promo.value) >= Number(usual.value);
+  }
+  return false;
+}
+
+
+//--- abrir el modal de historial de precios ---
+
+// Funciones para controlar la visibilidad del modal
+
+
+function agregarCampoPrecio() {
+    const contenedor = document.getElementById('contenedor-precios');
+    const nuevaFila = document.createElement('div');
+    nuevaFila.className = 'flex items-center gap-2 fila-historial';
+    
+    nuevaFila.innerHTML = `
+        <input type="number" step="any" class="precio-input w-full min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/30" placeholder="Precio">
+        
+        <input type="number" step="any" class="cantidad-input w-full min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/30" placeholder="Cantidad">
+        
+        <button type="button" onclick="eliminarFila(this)" class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-400 transition hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-400" title="Eliminar fila">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+        </button>
+    `;
+    
+    contenedor.appendChild(nuevaFila);
+    
+    contenedor.scrollTop = contenedor.scrollHeight;
+}
+
+// NUEVA FUNCIÓN: Elimina solo la fila donde se hizo clic
+function eliminarFila(botonReferencia) {
+    const fila = botonReferencia.closest('.fila-historial');
+    fila.remove();
+    
+    // Si el usuario borró la última fila que quedaba, agregamos una limpia
+    const contenedor = document.getElementById('contenedor-precios');
+    if (contenedor.children.length === 0) {
+        agregarCampoPrecio();
+    }
+}
+
+// NUEVA FUNCIÓN: Borra todo de golpe
+function limpiarTodoHistorial() {
+    const contenedor = document.getElementById('contenedor-precios');
+    contenedor.innerHTML = ''; // Borra el contenido por completo
+    agregarCampoPrecio(); // Crea una nueva fila en blanco para empezar
+}
+
+function abrirModal() {
+    const modal = document.getElementById('modal-historial');
+    modal.classList.remove('hidden'); // Quita el ocultamiento
+}
+
+function cerrarModal() {
+    const modal = document.getElementById('modal-historial');
+    modal.classList.add('hidden'); // Vuelve a ocultarlo
+}
+
+function guardarYcerrarModal() {
+    historialDemanda = []; // Limpiar antes de guardar
+    const filas = document.querySelectorAll('.fila-historial');
+    
+    filas.forEach(fila => {
+        const precio = fila.querySelector('.precio-input').value;
+        const cantidad = fila.querySelector('.cantidad-input').value;
+        
+        // Solo guardar si ambos campos tienen información
+        if(precio !== "" && cantidad !== "") {
+            historialDemanda.push({
+                precio: parseFloat(precio),
+                cantidad: parseFloat(cantidad)
+            });
+        }
+    });
+    
+    cerrarModal();
+}
+// ─── Utilidades ──────────────────────────────────────────────
+
+
+
 
 function getCurrencyConfig() {
   const selectedCurrency = currencySelect?.value || 'CLP';
@@ -242,13 +407,45 @@ function buildExcelRows(data) {
     ['Capacidad máxima de producción', capacityValue],
     [],
     ['--- RESULTADOS DE LA OPTIMIZACIÓN ---'],
-    ['Precio óptimo', currency(data.optimal.price)],
-    ['Ganancia máxima', currency(data.optimal.max_profit)],
-    ['Cantidad óptima', `${number(data.optimal.quantity)} unidades`],
-    ['Ingresos totales proyectados', currency(projectedRevenue)],
-    ['Costos totales proyectados', currency(projectedCost)]
+    ['Precio óptimo', currency(data.optimal?.price)],
+    ['Ganancia máxima', currency(data.optimal?.max_profit)],
+    ['Cantidad óptima', `${number(data.optimal?.quantity)} unidades`],
+    ['Ingresos totales proyectados', currency(data.optimal?.projected_revenue)],
+    ['Costos totales proyectados', currency(data.optimal?.projected_total_cost)],
+    ['Margen de ganancia', data.optimal?.profit_margin_percent != null ? `${number(data.optimal.profit_margin_percent)}%` : 'N/A'],
+    ['Elasticidad precio-demanda', data.optimal?.elasticity_at_optimum != null ? number(data.optimal.elasticity_at_optimum) : 'N/A'],
+    ['Punto(s) de equilibrio', be],
+    ['Demanda deducida', data.formulas?.demand_deduced || 'N/A'],
+    ['Ingresos', data.formulas?.revenue || 'N/A'],
+    ['Costos', data.formulas?.total_cost || 'N/A'],
+    ['Ganancia', data.formulas?.profit || 'N/A'],
+    ['Primera derivada', data.formulas?.first_derivative || 'N/A'],
+    ['Segunda derivada', data.formulas?.second_derivative || 'N/A'],
+    ['Elasticidad', data.formulas?.elasticity || 'N/A'],
+    [],
+    ['--- ANÁLISIS DE SENSIBILIDAD ---'],
+    ['Parámetro', 'Variación', 'Valor', 'Precio óptimo', 'Ganancia máxima', 'Cantidad óptima'],
   ];
+
+  if (data.sensitivity?.scenarios) {
+    data.sensitivity.scenarios.forEach(s => {
+      rows.push([
+        s.parametro,
+        s.variacion,
+        number(s.valor),
+        s.precio_optimo != null ? currency(s.precio_optimo) : 'N/A',
+        s.ganancia_maxima != null ? currency(s.ganancia_maxima) : 'N/A',
+        s.cantidad_optima != null ? `${number(s.cantidad_optima)} u.` : 'N/A',
+      ]);
+    });
+  }
+
+  return rows;
 }
+
+// ─── Acciones ────────────────────────────────────────────────
+
+
 
 function saveScenarioForCompare() {
   if (!lastOptimizationData) {
@@ -292,12 +489,14 @@ async function handleSubmit(event) {
     usual_quantity: Number(document.getElementById('usual_quantity').value),
     promo_price: Number(document.getElementById('promo_price').value),
     promo_quantity: Number(document.getElementById('promo_quantity').value),
+    price_history: historialDemanda,
     fixed_cost: Number(document.getElementById('fixed_cost').value),
     unit_cost: Number(document.getElementById('unit_cost').value),
     max_capacity: document.getElementById('max_capacity').value
       ? Number(document.getElementById('max_capacity').value)
       : null,
     chart_points: 300
+
   };
 
   try {
