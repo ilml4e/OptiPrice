@@ -285,37 +285,64 @@
         </div>
 
         <!-- ▸ KPIS SECUNDARIOS ▸ -->
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <article class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg">
             <p class="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">Ingresos totales proyectados</p>
-            <p id="resultRevenue" class="text-2xl font-bold text-sky-400">—</p>
+            <p id="resultRevenue" class="text-xl font-bold text-sky-400">—</p>
           </article>
           <article class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg">
             <p class="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">Costos totales proyectados</p>
-            <p id="resultCost" class="text-2xl font-bold text-rose-400">—</p>
+            <p id="resultCost" class="text-xl font-bold text-rose-400">—</p>
+          </article>
+          <article class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg">
+            <p class="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">Margen de ganancia</p>
+            <p id="resultMargin" class="text-xl font-bold text-amber-400">—</p>
+          </article>
+          <article class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg">
+            <p class="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500" title="Sensibilidad del consumidor al cambio de precio">Elasticidad (ε)</p>
+            <p id="resultElasticity" class="text-xl font-bold text-violet-400">—</p>
           </article>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 mt-4">
-          <article class="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg sm:col-start-2">
-            <p class="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500" title="Sensibilidad del consumidor al cambio de precio">Elasticidad Precio</p>
-            <p id="resultElasticity" class="text-2xl font-bold text-amber-400">—</p>
-          </article>
-        </div>
-
-        <div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 mt-4 shadow-lg">
-            <h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">Análisis de Sensibilidad: Variación en Costos</h3>
-            <div class="grid grid-cols-2 gap-4">
+        <!-- ▸ ANÁLISIS DE SENSIBILIDAD (resumen + tabla) ▸ -->
+        <article id="sensitivitySection" class="hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg mt-4">
+          <header class="border-b border-slate-800 px-5 py-4 sm:px-6">
+            <h2 class="text-base font-semibold text-slate-200">Análisis de sensibilidad</h2>
+            <p class="mt-0.5 text-xs text-slate-500">Cómo varían los resultados ante cambios en parámetros clave</p>
+          </header>
+          <div class="p-4 sm:p-6 space-y-4">
+            <!-- Resumen rápido: ±10% en costo unitario -->
+            <div class="rounded-xl border border-slate-700 bg-slate-800/40 p-4 shadow-inner">
+              <h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-300">Impacto del costo unitario</h3>
+              <div class="grid grid-cols-2 gap-4">
                 <div class="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-                    <p class="text-xs text-slate-400">Si el costo unitario baja un 10%</p>
-                    <p class="text-sm font-semibold text-emerald-300">Nuevo precio sugerido: <span id="sensDownPrice">—</span></p>
+                  <p class="text-xs text-slate-400">Si el costo unitario baja un 10%</p>
+                  <p class="text-sm font-semibold text-emerald-300">Nuevo precio sugerido: <span id="sensDownPrice">—</span></p>
                 </div>
                 <div class="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-                    <p class="text-xs text-slate-400">Si el costo unitario sube un 10%</p>
-                    <p class="text-sm font-semibold text-rose-300">Nuevo precio sugerido: <span id="sensUpPrice">—</span></p>
+                  <p class="text-xs text-slate-400">Si el costo unitario sube un 10%</p>
+                  <p class="text-sm font-semibold text-rose-300">Nuevo precio sugerido: <span id="sensUpPrice">—</span></p>
                 </div>
+              </div>
             </div>
-        </div>
+            <!-- Tabla completa -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead>
+                  <tr class="border-b border-slate-700 text-xs uppercase tracking-wider text-slate-400">
+                    <th class="px-3 py-2 font-medium">Parámetro</th>
+                    <th class="px-3 py-2 font-medium">Variación</th>
+                    <th class="px-3 py-2 font-medium">Valor</th>
+                    <th class="px-3 py-2 font-medium">Precio óptimo</th>
+                    <th class="px-3 py-2 font-medium">Ganancia máxima</th>
+                    <th class="px-3 py-2 font-medium">Cantidad</th>
+                  </tr>
+                </thead>
+                <tbody id="sensitivityBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </article>
 
         <!-- ▸ GRÁFICO + EXPORTACIÓN ▸ -->
         <article id="dashboardCard" class="rounded-2xl border border-slate-800 bg-slate-900 shadow-lg">
@@ -401,6 +428,10 @@
                   <dt class="font-medium text-slate-400">Segunda derivada</dt>
                   <dd id="formulaSecondDerivative" class="mt-0.5 font-mono text-emerald-300/90">—</dd>
                 </div>
+                <div>
+                  <dt class="font-medium text-slate-400">Elasticidad precio-demanda</dt>
+                  <dd id="formulaElasticity" class="mt-0.5 font-mono text-cyan-300/90">—</dd>
+                </div>
               </dl>
             </div>
 
@@ -409,6 +440,8 @@
               <div class="space-y-4 text-sm leading-relaxed text-slate-300">
                 <p id="mathExplanation">—</p>
                 <p id="feasibleDomain">—</p>
+                <p id="elasticityExplanation" class="italic text-violet-300/80">—</p>
+                <p id="breakEvenInfo" class="text-amber-300/80">—</p>
                 <div>
                   <h4 class="mb-2 font-semibold text-slate-200">Puntos críticos detectados</h4>
                   <ul id="criticalPointsList" class="space-y-2"></ul>

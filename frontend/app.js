@@ -11,7 +11,12 @@ const resultProfit = document.getElementById('resultProfit');
 const resultQuantity = document.getElementById('resultQuantity');
 const resultRevenue = document.getElementById('resultRevenue');
 const resultCost = document.getElementById('resultCost');
+const resultMargin = document.getElementById('resultMargin');
+const resultElasticity = document.getElementById('resultElasticity');
 const capacityBadge = document.getElementById('capacityBadge');
+const sensDownPrice = document.getElementById('sensDownPrice');
+const sensUpPrice = document.getElementById('sensUpPrice');
+const sensitivityBody = document.getElementById('sensitivityBody');
 
 const formulaDemand = document.getElementById('formulaDemand');
 const formulaVariableCost = document.getElementById('formulaVariableCost');
@@ -20,8 +25,11 @@ const formulaCost = document.getElementById('formulaCost');
 const formulaProfit = document.getElementById('formulaProfit');
 const formulaFirstDerivative = document.getElementById('formulaFirstDerivative');
 const formulaSecondDerivative = document.getElementById('formulaSecondDerivative');
+const formulaElasticity = document.getElementById('formulaElasticity');
 const mathExplanation = document.getElementById('mathExplanation');
 const feasibleDomain = document.getElementById('feasibleDomain');
+const elasticityExplanation = document.getElementById('elasticityExplanation');
+const breakEvenInfo = document.getElementById('breakEvenInfo');
 const criticalPointsList = document.getElementById('criticalPointsList');
 
 let lastOptimizationData = null;
@@ -326,6 +334,23 @@ function renderChart(chart, comparisonChart = null) {
     hovertemplate: `Precio: %{x}<br>Ganancia: %{y} ${currencyLabel}<extra></extra>`
   });
 
+  // Puntos de equilibrio (break-even)
+  if (chart.break_even_points && chart.break_even_points.length > 0) {
+    traces.push({
+      x: chart.break_even_points.map(p => p.price),
+      y: chart.break_even_points.map(p => p.profit),
+      mode: 'markers',
+      name: 'Punto de equilibrio',
+      marker: {
+        color: '#fbbf24',
+        size: 12,
+        symbol: 'diamond',
+        line: { color: '#1e293b', width: 2 }
+      },
+      hovertemplate: `Precio equilibrio: %{x:.2f}<extra>Break-even</extra>`
+    });
+  }
+
   // Óptimo
   traces.push({
     x: [chart.optimal_point.price], y: [chart.optimal_point.profit],
@@ -350,6 +375,37 @@ function renderChart(chart, comparisonChart = null) {
 }
 
 
+function renderSensitivityTable(scenarios) {
+  if (!sensitivityBody || !scenarios || scenarios.length === 0) return;
+  document.getElementById('sensitivitySection')?.classList.remove('hidden');
+
+  sensitivityBody.innerHTML = '';
+  scenarios.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.className = 'border-b border-slate-800 last:border-0';
+
+    const priceCell = s.precio_optimo != null
+      ? `<span class="text-cyan-300 font-medium">${currency(s.precio_optimo)}</span>`
+      : '<span class="text-slate-500">—</span>';
+    const profitCell = s.ganancia_maxima != null
+      ? `<span class="text-emerald-300 font-medium">${currency(s.ganancia_maxima)}</span>`
+      : '<span class="text-slate-500">—</span>';
+    const qtyCell = s.cantidad_optima != null
+      ? `${number(s.cantidad_optima)} u.`
+      : '—';
+
+    tr.innerHTML = `
+      <td class="px-3 py-2 text-sm text-slate-300">${s.parametro}</td>
+      <td class="px-3 py-2 text-sm text-slate-300">${s.variacion}</td>
+      <td class="px-3 py-2 text-sm text-slate-300">${number(s.valor)}</td>
+      <td class="px-3 py-2 text-sm">${priceCell}</td>
+      <td class="px-3 py-2 text-sm">${profitCell}</td>
+      <td class="px-3 py-2 text-sm text-slate-300">${qtyCell}</td>
+    `;
+    sensitivityBody.appendChild(tr);
+  });
+}
+
 function renderResultViews(data) {
   resultPrice.textContent = currency(data.optimal.price);
   resultProfit.textContent = currency(data.optimal.max_profit);
@@ -357,9 +413,16 @@ function renderResultViews(data) {
   resultRevenue.textContent = currency(data.optimal.projected_revenue);
   resultCost.textContent = currency(data.optimal.projected_total_cost);
 
+  if (resultMargin) {
+    resultMargin.textContent = data.optimal.profit_margin_percent != null
+      ? `${number(data.optimal.profit_margin_percent)}%`
+      : '—';
+  }
+
   if(resultElasticity) {
-      resultElasticity.textContent = number(data.optimal.elasticity);
-      resultElasticity.title = Math.abs(data.optimal.elasticity) > 1 ? "Demanda Elástica" : "Demanda Inelástica";
+      const elasticityValue = data.optimal.elasticity_at_optimum ?? data.optimal.elasticity;
+      resultElasticity.textContent = number(elasticityValue);
+      resultElasticity.title = Math.abs(elasticityValue) > 1 ? "Demanda Elástica" : "Demanda Inelástica";
   }
   if(sensDownPrice && sensUpPrice) {
       const sensitivityScenarios = data.sensitivity?.scenarios || [];
@@ -380,13 +443,31 @@ function renderResultViews(data) {
   formulaProfit.textContent = data.formulas.profit;
   formulaFirstDerivative.textContent = data.formulas.first_derivative;
   formulaSecondDerivative.textContent = data.formulas.second_derivative;
+  if (formulaElasticity) formulaElasticity.textContent = data.formulas.elasticity || '—';
 
   mathExplanation.textContent = data.optimal.mathematical_check;
   feasibleDomain.textContent =
     `Dominio factible de análisis: precio entre ${number(data.optimal.feasible_domain.price_min)} y ${number(data.optimal.feasible_domain.price_max)}.`;
 
+  if (elasticityExplanation && data.optimal.elasticity_interpretation) {
+    elasticityExplanation.textContent = data.optimal.elasticity_interpretation;
+  }
+
+  if (breakEvenInfo) {
+    if (data.optimal.break_even_prices?.length > 0) {
+      const prices = data.optimal.break_even_prices.map(p => currency(p)).join(', ');
+      breakEvenInfo.textContent = `Punto(s) de equilibrio: ${prices}`;
+    } else {
+      breakEvenInfo.textContent = 'No se encontraron puntos de equilibrio positivos en el dominio factible.';
+    }
+  }
+
   renderCriticalPoints(data.critical_points);
   renderChart(data.chart, comparisonOptimizationData?.chart || null);
+
+  if (data.sensitivity?.scenarios) {
+    renderSensitivityTable(data.sensitivity.scenarios);
+  }
 
   if (data.optimal.capacity_is_binding) {
     capacityBadge.classList.remove('hidden');
@@ -400,10 +481,11 @@ function renderResultViews(data) {
 
 function buildExcelRows(data) {
   const capacityValue = data.inputs.max_capacity == null ? 'Sin límite explícito' : `${number(data.inputs.max_capacity)} unidades`;
-  const projectedRevenue = data.optimal.projected_revenue ?? (data.optimal.price * data.optimal.quantity);
-  const projectedCost = data.optimal.projected_total_cost ?? ((data.optimal.price * data.optimal.quantity) - data.optimal.max_profit);
+  const be = data.optimal?.break_even_prices?.length
+    ? data.optimal.break_even_prices.map(p => currency(p)).join(', ')
+    : 'No disponible';
 
-  return [
+  const rows = [
     ['Reporte de Optimización de Precios - OptiPrice'],
     [],
     ['--- DATOS INGRESADOS ---'],

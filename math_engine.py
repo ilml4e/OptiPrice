@@ -236,6 +236,10 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
     first_derivative = sp.diff(profit_expr, P)
     second_derivative = sp.diff(first_derivative, P)
 
+    # --- Elasticidad simbólica: ε(p) = (dq/dp) * (p/q) ---
+    d_demand_dp = sp.diff(demand_expr, P)
+    elasticity_expr = sp.simplify(d_demand_dp * P / demand_expr)
+
     natural_upper = build_natural_upper_bound(demand_expr, inputs.usual_price)
     
     # Dominios factibles
@@ -247,6 +251,7 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
     revenue_fn = sp.lambdify(P, revenue_expr, "numpy")
     cost_fn = sp.lambdify(P, cost_expr_p, "numpy")
     second_fn = sp.lambdify(P, second_derivative, "numpy")
+    elasticity_fn = sp.lambdify(P, elasticity_expr, "numpy")
 
     raw_critical_points = real_float_solutions(sp.solve(sp.Eq(first_derivative, 0), P))
 
@@ -274,13 +279,35 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
 
     capacity_is_binding = inputs.max_capacity is not None and unconstrained_best["quantity"] > inputs.max_capacity + 1e-6
     second_value = constrained_best["second_value"]
-    second_derivative_confirms_max = np.isfinite(second_value) and second_value < 0
+    is_interior_point = feasible_lower + 1e-6 < constrained_best["price"] < feasible_upper - 1e-6
+    second_derivative_confirms_max = bool(np.isfinite(second_value) and second_value < 0 and is_interior_point)
 
-    
     # Elasticidad: E = (dq/dp) * (p/q)
     opt_p = constrained_best["price"]
     opt_q = constrained_best["quantity"]
     elasticity = float(demand_slope * (opt_p / opt_q)) if opt_q > 0 else 0.0
+
+    # --- Elasticidad simbólica evaluada en el óptimo ---
+    optimal_elasticity = None
+    try:
+        val = float(elasticity_fn(opt_p))
+        if np.isfinite(val):
+            optimal_elasticity = val
+    except Exception:
+        pass
+
+    # --- Puntos de equilibrio (break-even): π(p) = 0 ---
+    raw_break_even = real_float_solutions(sp.solve(sp.Eq(profit_expr, 0), P))
+    break_even_prices = [
+        round(p, 4) for p in raw_break_even
+        if p > 0 and evaluate_feasibility(float(demand_fn(p)), inputs.max_capacity)
+    ]
+
+    # --- Margen de ganancia sobre ingresos en el óptimo ---
+    total_revenue_opt = opt_p * opt_q
+    profit_margin_percent = round(
+        (constrained_best["profit"] / total_revenue_opt) * 100, 2
+    ) if total_revenue_opt > 0 else 0.0
 
     # --- Explicación ---
     if second_derivative_confirms_max:
@@ -303,6 +330,8 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
 
     # --- NUEVO: Pasamos la pendiente e intercepto obtenidos a la sensibilidad ---
     sensitivity_scenarios = _analyze_sensitivity(inputs, demand_slope, demand_intercept)
+
+    elasticity_interpretation = _interpret_elasticity(optimal_elasticity)
 
     # --- Datos para gráfica (ganancia, ingresos, costos, break-even) ---
     chart_prices = np.linspace(0.0, natural_upper, inputs.chart_points)
@@ -329,6 +358,7 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
             "profit": str(profit_expr),
             "first_derivative": str(first_derivative),
             "second_derivative": str(second_derivative),
+            "elasticity": str(elasticity_expr),
         },
         "critical_points": [
             {
@@ -343,10 +373,16 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
             "max_profit": round(constrained_best["profit"], 4),
             "projected_revenue": round(opt_p * opt_q, 4),
             "projected_total_cost": round(opt_p * opt_q - constrained_best["profit"], 4),
+            "profit_margin_percent": profit_margin_percent,
             "elasticity": round(elasticity, 4),
             "capacity_is_binding": capacity_is_binding,
+            "second_derivative_value": round(second_value, 4) if np.isfinite(second_value) else None,
+            "second_derivative_confirms_max": second_derivative_confirms_max,
             "mathematical_check": f"π''(p*) = {second_value:.4f}. Elasticidad calculada: {elasticity:.4f}.",
             "feasible_domain": {"price_min": round(feasible_lower, 4), "price_max": round(feasible_upper, 4)},
+            "elasticity_at_optimum": round(optimal_elasticity, 4) if optimal_elasticity is not None else None,
+            "elasticity_interpretation": elasticity_interpretation,
+            "break_even_prices": break_even_prices,
         },
         "sensitivity": {
             "scenarios": sensitivity_scenarios,
@@ -362,5 +398,8 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
                 "price": round(opt_p, 4),
                 "profit": round(constrained_best["profit"], 4),
             },
+            "break_even_points": [
+                {"price": p, "profit": 0} for p in break_even_prices
+            ],
         },
     }
