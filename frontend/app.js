@@ -124,6 +124,7 @@ function agregarCampoPrecio() {
     const nuevaFila = document.createElement('div');
     nuevaFila.className = 'flex items-center gap-2 fila-historial';
     
+    // Inyectamos el mismo HTML corregido con w-full y min-w-0
     nuevaFila.innerHTML = `
         <input type="number" step="any" class="precio-input w-full min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/30" placeholder="Precio">
         
@@ -136,6 +137,7 @@ function agregarCampoPrecio() {
     
     contenedor.appendChild(nuevaFila);
     
+    // Hace scroll automático hacia abajo cuando agregas uno nuevo
     contenedor.scrollTop = contenedor.scrollHeight;
 }
 
@@ -360,8 +362,15 @@ function renderResultViews(data) {
       resultElasticity.title = Math.abs(data.optimal.elasticity) > 1 ? "Demanda Elástica" : "Demanda Inelástica";
   }
   if(sensDownPrice && sensUpPrice) {
-      sensDownPrice.textContent = currency(data.sensitivity.unit_cost_down_10.suggested_price);
-      sensUpPrice.textContent = currency(data.sensitivity.unit_cost_up_10.suggested_price);
+      const sensitivityScenarios = data.sensitivity?.scenarios || [];
+      const downScenario = sensitivityScenarios.find(s => s.parametro === 'Costo unitario' && s.variacion === '-10%');
+      const upScenario = sensitivityScenarios.find(s => s.parametro === 'Costo unitario' && s.variacion === '+10%');
+
+      const downPrice = downScenario?.suggested_price ?? downScenario?.precio_optimo;
+      const upPrice = upScenario?.suggested_price ?? upScenario?.precio_optimo;
+
+      sensDownPrice.textContent = downPrice != null ? currency(downPrice) : '—';
+      sensUpPrice.textContent = upPrice != null ? currency(upPrice) : '—';
   }
 
   formulaDemand.textContent = `q(p) = ${data.formulas.demand_deduced}`;

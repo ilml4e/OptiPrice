@@ -274,6 +274,8 @@ def optimize_price(inputs: OptimizationInputs) -> Dict[str, Any]:
 
     capacity_is_binding = inputs.max_capacity is not None and unconstrained_best["quantity"] > inputs.max_capacity + 1e-6
     second_value = constrained_best["second_value"]
+    second_derivative_confirms_max = np.isfinite(second_value) and second_value < 0
+
     
     # Elasticidad: E = (dq/dp) * (p/q)
     opt_p = constrained_best["price"]
